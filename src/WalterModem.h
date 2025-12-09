@@ -869,7 +869,8 @@ typedef enum {
  */
 typedef enum {
   WALTER_MODEM_SOCKET_RING_MODE_NORMAL = 0,
-  WALTER_MODEM_SOCKET_RING_MODE_DATA_AMOUNT = 1
+  WALTER_MODEM_SOCKET_RING_MODE_DATA_AMOUNT = 1,
+  WALTER_MODEM_SOCKET_RING_MODE_DATA_VIEW = 2
 } WalterModemSocketRingMode;
 
 /**
@@ -2278,10 +2279,16 @@ typedef struct {
    */
   uint8_t profileId = 0;
 
-  /**
-   * @brief size of the ring message (data amount)
-   */
+ /**
+  * @brief size of the ring message (data amount)
+  */
   uint16_t ringSize = 0;
+
+  /**
+   * @brief Optional payload for srMode = DATA_VIEW.
+   */
+  uint8_t payload[1500] = { 0 };
+  uint16_t payloadSize = 0;
 } WalterModemSocketRing;
 
 /**
@@ -2327,6 +2334,16 @@ typedef struct {
    * The maximum delay is 25500 milliseconds.
    */
   uint16_t sendDelayMs = 5000;
+
+  /**
+   * @brief Configured ring mode (srMode).
+   */
+  WalterModemSocketRingMode ringMode = WALTER_MODEM_SOCKET_RING_MODE_NORMAL;
+
+  /**
+   * @brief Configured receive mode (text/hex).
+   */
+  WalterModemSocketRecvMode recvMode = WALTER_MODEM_SOCKET_RECV_MODE_TEXT;
 
   /**
    * @brief The protocol to use.

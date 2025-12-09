@@ -106,14 +106,27 @@ void WalterModem::_ringQueueProcessingTask(void* args)
 {
   WalterModemSocketRing ring {};
   TickType_t blockTime = pdMS_TO_TICKS(1000);
-  uint8_t data[1500];
   while(true) {
     if(xQueueReceive(_ringQueue.handle, &ring, blockTime) == pdTRUE) {
-      socketReceive(ring.ringSize, sizeof(data), data, ring.profileId);
-      _dispatchEvent(WALTER_MODEM_SOCKET_EVENT_RING, ring.profileId, ring.ringSize, data);
+      bool hasPayload = ring.payloadSize > 0;
+      if(hasPayload) {
+        _dispatchEvent(WALTER_MODEM_SOCKET_EVENT_RING, ring.profileId, ring.payloadSize,
+                       ring.payload);
+      } else {
+        ring.payloadSize = 0;
+        socketReceive(ring.ringSize, sizeof(ring.payload), ring.payload, ring.profileId);
+        _dispatchEvent(WALTER_MODEM_SOCKET_EVENT_RING, ring.profileId, ring.ringSize,
+                       ring.payload);
+      }
 #ifdef CONFIG_WALTER_MODEM_ENABLE_BLUECHERRY
       if(ring.profileId == _blueCherry.bcSocketId) {
-        _blueCherrySocketEventHandler(WALTER_MODEM_SOCKET_EVENT_RING, ring.ringSize, data);
+        if(hasPayload) {
+          _blueCherrySocketEventHandler(WALTER_MODEM_SOCKET_EVENT_RING, ring.payloadSize,
+                                        ring.payload);
+        } else {
+          _blueCherrySocketEventHandler(WALTER_MODEM_SOCKET_EVENT_RING, ring.ringSize,
+                                        ring.payload);
+        }
       }
 #endif
     }
@@ -185,6 +198,9 @@ bool WalterModem::socketConfigExtended(WalterModemRsp* rsp, walterModemCb cb, vo
   if(sock == NULL) {
     _returnState(WALTER_MODEM_STATE_NO_SUCH_SOCKET);
   }
+
+  sock->ringMode = ringMode;
+  sock->recvMode = recvMode;
 
   _runCmd(arr("AT+SQNSCFGEXT=", _digitStr(sock->id), ",", _digitStr(ringMode), ",",
               _digitStr(recvMode), ",", _digitStr(keepAlive), ",", _digitStr(listenMode), ",",
