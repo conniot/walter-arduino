@@ -140,7 +140,7 @@ CONFIG_UINT8(WALTER_MODEM_TASK_QUEUE_MAX_ITEMS, 32)
 /**
  * @brief The size of the stack of the command and response processing task.
  */
-CONFIG_INT(WALTER_MODEM_TASK_STACK_SIZE, 4096)
+CONFIG_INT(WALTER_MODEM_TASK_STACK_SIZE, 8192)
 
 /**
  * @brief The maximum number of pending commands.
