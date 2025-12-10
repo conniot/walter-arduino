@@ -106,27 +106,14 @@ void WalterModem::_ringQueueProcessingTask(void* args)
 {
   WalterModemSocketRing ring {};
   TickType_t blockTime = pdMS_TO_TICKS(1000);
+  uint8_t data[1500];
   while(true) {
     if(xQueueReceive(_ringQueue.handle, &ring, blockTime) == pdTRUE) {
-      bool hasPayload = ring.payloadSize > 0;
-      if(hasPayload) {
-        _dispatchEvent(WALTER_MODEM_SOCKET_EVENT_RING, ring.profileId, ring.payloadSize,
-                       ring.payload);
-      } else {
-        ring.payloadSize = 0;
-        socketReceive(ring.ringSize, sizeof(ring.payload), ring.payload, ring.profileId);
-        _dispatchEvent(WALTER_MODEM_SOCKET_EVENT_RING, ring.profileId, ring.ringSize,
-                       ring.payload);
-      }
+      socketReceive(ring.ringSize, sizeof(data), data, ring.profileId);
+      _dispatchEvent(WALTER_MODEM_SOCKET_EVENT_RING, ring.profileId, ring.ringSize, data);
 #ifdef CONFIG_WALTER_MODEM_ENABLE_BLUECHERRY
       if(ring.profileId == _blueCherry.bcSocketId) {
-        if(hasPayload) {
-          _blueCherrySocketEventHandler(WALTER_MODEM_SOCKET_EVENT_RING, ring.payloadSize,
-                                        ring.payload);
-        } else {
-          _blueCherrySocketEventHandler(WALTER_MODEM_SOCKET_EVENT_RING, ring.ringSize,
-                                        ring.payload);
-        }
+        _blueCherrySocketEventHandler(WALTER_MODEM_SOCKET_EVENT_RING, ring.ringSize, data);
       }
 #endif
     }
@@ -198,9 +185,6 @@ bool WalterModem::socketConfigExtended(WalterModemRsp* rsp, walterModemCb cb, vo
   if(sock == NULL) {
     _returnState(WALTER_MODEM_STATE_NO_SUCH_SOCKET);
   }
-
-  sock->ringMode = ringMode;
-  sock->recvMode = recvMode;
 
   _runCmd(arr("AT+SQNSCFGEXT=", _digitStr(sock->id), ",", _digitStr(ringMode), ",",
               _digitStr(recvMode), ",", _digitStr(keepAlive), ",", _digitStr(listenMode), ",",
@@ -356,13 +340,13 @@ bool WalterModem::socketReceive(uint16_t receiveCount, size_t targetBufSize, uin
     _returnState(WALTER_MODEM_STATE_NO_MEMORY);
   }
 
-  dataToRead = (receiveCount > sock->dataAvailable) ? sock->dataAvailable : receiveCount;
-
-  if(dataToRead == 0) {
-    return true;
+  /* Always attempt to read the announced amount; dataAvailable may be stale */
+  dataToRead = receiveCount;
+  if(sock->dataAvailable >= dataToRead) {
+    sock->dataAvailable -= dataToRead;
+  } else {
+    sock->dataAvailable = 0;
   }
-
-  sock->dataAvailable -= dataToRead;
 
   // The number of received bytes attempts to be read from within the RX parser.
   // This will be used as a fallback if it cannot read it.

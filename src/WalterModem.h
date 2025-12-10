@@ -140,7 +140,7 @@ CONFIG_UINT8(WALTER_MODEM_TASK_QUEUE_MAX_ITEMS, 32)
 /**
  * @brief The size of the stack of the command and response processing task.
  */
-CONFIG_INT(WALTER_MODEM_TASK_STACK_SIZE, 8192)
+CONFIG_INT(WALTER_MODEM_TASK_STACK_SIZE, 4096)
 
 /**
  * @brief The maximum number of pending commands.
@@ -869,8 +869,7 @@ typedef enum {
  */
 typedef enum {
   WALTER_MODEM_SOCKET_RING_MODE_NORMAL = 0,
-  WALTER_MODEM_SOCKET_RING_MODE_DATA_AMOUNT = 1,
-  WALTER_MODEM_SOCKET_RING_MODE_DATA_VIEW = 2
+  WALTER_MODEM_SOCKET_RING_MODE_DATA_AMOUNT = 1
 } WalterModemSocketRingMode;
 
 /**
@@ -2279,16 +2278,10 @@ typedef struct {
    */
   uint8_t profileId = 0;
 
- /**
-  * @brief size of the ring message (data amount)
-  */
-  uint16_t ringSize = 0;
-
   /**
-   * @brief Optional payload for srMode = DATA_VIEW.
+   * @brief size of the ring message (data amount)
    */
-  uint8_t payload[1500] = { 0 };
-  uint16_t payloadSize = 0;
+  uint16_t ringSize = 0;
 } WalterModemSocketRing;
 
 /**
@@ -2334,16 +2327,6 @@ typedef struct {
    * The maximum delay is 25500 milliseconds.
    */
   uint16_t sendDelayMs = 5000;
-
-  /**
-   * @brief Configured ring mode (srMode).
-   */
-  WalterModemSocketRingMode ringMode = WALTER_MODEM_SOCKET_RING_MODE_NORMAL;
-
-  /**
-   * @brief Configured receive mode (text/hex).
-   */
-  WalterModemSocketRecvMode recvMode = WALTER_MODEM_SOCKET_RECV_MODE_TEXT;
 
   /**
    * @brief The protocol to use.

@@ -2607,7 +2607,6 @@ void WalterModem::_processQueueRsp(WalterModemCmd* cmd, WalterModemBuffer* buff)
 
     WalterModemSocket* sock = _socketGet(sockId);
     uint16_t dataReceived = 0;
-    bool dataViewMode = sock && sock->ringMode == WALTER_MODEM_SOCKET_RING_MODE_DATA_VIEW;
 
     char* commaPos = strchr(start, ',');
     if(commaPos) {
@@ -2615,23 +2614,6 @@ void WalterModem::_processQueueRsp(WalterModemCmd* cmd, WalterModemBuffer* buff)
       start = ++commaPos;
       dataReceived = atoi(commaPos);
     }
-
-    const uint8_t* payloadPtr = nullptr;
-    uint16_t payloadLen = 0;
-    if(dataViewMode) {
-      char* payload = strstr(rspStr, "\r\n");
-      if(payload) {
-        payload += 2;
-        payloadLen = buff->size - (payload - rspStr);
-        if(payloadLen > 1500) {
-          payloadLen = 1500;
-        }
-        if(payloadLen > 0) {
-          payloadPtr = reinterpret_cast<const uint8_t*>(payload);
-        }
-      }
-    }
-
     WalterModemEventHandler* handler = _eventHandlers + WALTER_MODEM_EVENT_TYPE_SOCKET;
     if(handler->socketHandler != nullptr
 #ifdef CONFIG_WALTER_MODEM_ENABLE_BLUECHERRY
@@ -2641,19 +2623,11 @@ void WalterModem::_processQueueRsp(WalterModemCmd* cmd, WalterModemBuffer* buff)
       WalterModemSocketRing ring {};
       ring.profileId = sockId;
       ring.ringSize = dataReceived;
-      if(dataViewMode && payloadPtr && payloadLen) {
-        memcpy(ring.payload, payloadPtr, payloadLen);
-        ring.payloadSize = payloadLen;
-      } else {
-        /* fall back to normal path so socketReceive can pull data */
-        ring.payloadSize = 0;
-        sock->dataAvailable += dataReceived;
+      sock->dataAvailable += dataReceived;
+      if(xQueueSend(_ringQueue.handle, &ring, 0)) {
       }
-      xQueueSend(_ringQueue.handle, &ring, 0);
     } else {
-      if(!dataViewMode || payloadLen == 0) {
-        sock->dataAvailable += dataReceived;
-      }
+      sock->dataAvailable += dataReceived;
     }
   }
 
